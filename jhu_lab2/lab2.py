@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import rospy, tf, copy, math
+import rospy, tf, copy, math, time
 
 from geometry_msgs.msg import Twist, Pose, PoseStamped
 from tf.transformations import euler_from_quaternion
@@ -13,7 +13,8 @@ class Robot:
         """
             This constructor sets up class variables and pubs/subs
         """
-
+        self.angle_threshold = 0.1
+        self.velocity_threshold = 1
         self._current =  Pose() # initlize correctly
         self._odom_list = tf.TransformListener()
         rospy.Timer(rospy.Duration(.1), self.timerCallback)
@@ -63,10 +64,11 @@ class Robot:
            It should then create a ??? message type, and publish it to ??? in order to move the robot
         """
 
-        diameter = 0.23 # based on wheel track from https://yujinrobot.github.io/kobuki/doxygen/enAppendixKobukiParameters.html
+        L = .138
 
         twist = Twist();
-        twist.angular.z = (v_right - v_left) / D;
+        twist.linear.x = (v_left + v_right) / 2
+        twist.angular.z = (v_right - v_left) / L
         r = rospy.Rate(10)
 
         driveStartTime = rospy.Time.now().secs
@@ -74,6 +76,11 @@ class Robot:
         while rospy.Time.now().secs < (driveStartTime + time):
             self._vel_pub.publish(twist)
             r.sleep()
+
+        self.stop()
+
+    def convert_angle(self, angle):
+        return angle + math.pi
 
     def rotate(self,angle):
         """
@@ -89,10 +96,12 @@ class Robot:
 
         (roll, pitch, yaw) = euler_from_quaternion(q)
 
-        print("init yaw:"+str(yaw))
+        goal_yaw = (self.convert_angle(yaw) + angle) % (2 * math.pi)
+
+        # print("init yaw:"+str(yaw))
 
         twist = Twist()
-        twist.angular.z = 3;
+        twist.angular.z = angle / 5;
         r = rospy.Rate(10)
 
         current_q = [self._current.orientation.x,
@@ -102,8 +111,9 @@ class Robot:
 
         (current_roll, current_pitch, current_yaw) = euler_from_quaternion(current_q)
 
+        current_yaw = self.convert_angle(current_yaw)
 
-        while (current_yaw - yaw) < angle:
+        while abs(current_yaw - goal_yaw) > self.angle_threshold:
             self._vel_pub.publish(twist)
             r.sleep()
             current_q = [self._current.orientation.x,
@@ -112,7 +122,14 @@ class Robot:
                      self._current.orientation.w]
 
             (current_roll, current_pitch, current_yaw) = euler_from_quaternion(current_q)
-            print("current yaw:" + str(current_yaw))
+            current_yaw = self.convert_angle(current_yaw)
+            # print("current yaw:" + str(current_yaw))
+
+        self.stop()
+
+    def stop(self):
+        twist = Twist()
+        self._vel_pub.publish(twist)
 
     def timerCallback(self,evprent):
         """
@@ -142,9 +159,12 @@ if __name__ == '__main__':
     rospy.init_node('drive_base')
     turtle = Robot()
 
+    time.sleep(1)
+
     #test function calls here
 
-    turtle.rotate(90)
+    # turtle.rotate(3.14)
+    turtle.spinWheels(1, 1, 1)
     # while  not rospy.is_shutdown():
     # 	# turtle.driveStraight(.2,.6)
     #     turtle.rotate(3.14)
