@@ -17,7 +17,8 @@ class Robot:
         self._current =  Pose() # initlize correctly
         self._odom_list = tf.TransformListener()
         rospy.Timer(rospy.Duration(.1), self.timerCallback)
-        self._vel_pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, queue_size=1)
+	#/cmd_vel_mux/input/teleop
+        self._vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
         rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.navToPose, queue_size=1) # handle nav goal events
 
 
@@ -45,7 +46,7 @@ class Robot:
         twist.linear.x = speed
         twist.angular.z = 0
 
-        r.rospy.Rate(1)
+        r = rospy.Rate(1)
 
         traveled_distance = self._current.orientation.x - origin.orientation.x
 
@@ -88,8 +89,10 @@ class Robot:
 
         (roll, pitch, yaw) = euler_from_quaternion(q)
 
+        print("init yaw:"+str(yaw))
+
         twist = Twist()
-        twist.angular.z = angle / 10;
+        twist.angular.z = 3;
         r = rospy.Rate(10)
 
         current_q = [self._current.orientation.x,
@@ -109,6 +112,7 @@ class Robot:
                      self._current.orientation.w]
 
             (current_roll, current_pitch, current_yaw) = euler_from_quaternion(current_q)
+            print("current yaw:" + str(current_yaw))
 
     def timerCallback(self,evprent):
         """
@@ -116,10 +120,10 @@ class Robot:
             Updates this instance of Robot's internal position variable (self._current)
         """
     # wait for and get the transform between two frames
-        self._odom_list.waitForTransform('/odom', '/base_link', rospy.Time(0), rospy.Duration(1.0))
-        (position, orientation) = self._odom_list.lookupTransform('/odom','/base_link', rospy.Time(0))
+        self._odom_list.waitForTransform('odom', 'base_link', rospy.Time(0), rospy.Duration(1.0))
+        (position, orientation) = self._odom_list.lookupTransform('odom','base_link', rospy.Time(0))
     # save the current position and orientation
-    self._current.position.x = position[0]
+        self._current.position.x = position[0]
         self._current.position.y = position[1]
         self._current.orientation.x = orientation[0]
         self._current.orientation.y = orientation[1]
@@ -140,5 +144,7 @@ if __name__ == '__main__':
 
     #test function calls here
 
-    while  not rospy.is_shutdown():
-        pass
+    turtle.rotate(90)
+    # while  not rospy.is_shutdown():
+    # 	# turtle.driveStraight(.2,.6)
+    #     turtle.rotate(3.14)
