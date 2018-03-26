@@ -17,8 +17,8 @@ class Robot:
         self._current =  Pose() # initlize correctly
         self._odom_list = tf.TransformListener()
         rospy.Timer(rospy.Duration(.1), self.timerCallback)
-        self._vel_pub = rospy.Publisher('/cmd_vel_mux', Twist, queue_size=1)
-        rospy.Subscriber('YOUR_STRING_HERE', Twist, self.navToPose, queue_size=1) # handle nav goal events
+        self._vel_pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, queue_size=1)
+        rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.navToPose, queue_size=1) # handle nav goal events
 
 
     def navToPose(self,goal):
@@ -27,8 +27,8 @@ class Robot:
             then spin to match the goal orientation.
         """
 
-        self._odom_list.waitForTransform('YOUR_STRING_HERE', '/base_link', rospy.Time(0), rospy.Duration(1.0))
-        transGoal = self._odom_list.transformPose('YOUR_STRING_HERE', goal) # transform the nav goal from the global coordinate system to the robot's coordinate system
+        self._odom_list.waitForTransform('/move_base_simple/goal', '/base_link', rospy.Time(0), rospy.Duration(1.0))
+        transGoal = self._odom_list.transformPose('/move_base_simple/goal', goal) # transform the nav goal from the global coordinate system to the robot's coordinate system
 
     def executeTrajectory(self):
       """
@@ -47,13 +47,13 @@ class Robot:
 
         r.rospy.Rate(1)
 
-        traveled_distance = origin.orientation.x - self._current.orientation.x
+        traveled_distance = self._current.orientation.x - origin.orientation.x
 
 
         while traveled_distance < distance:
             self._vel_pub.publish(twist)
             r.sleep()
-            traveled_distance = origin.orientation.x - self._current.orientation.x
+            traveled_distance = self._current.orientation.x - origin.orientation.x
 
 
     def spinWheels(self, v_left, v_right, time):
@@ -115,11 +115,11 @@ class Robot:
             This is a callback that runs every 0.1s.
             Updates this instance of Robot's internal position variable (self._current)
         """
-	# wait for and get the transform between two frames
+    # wait for and get the transform between two frames
         self._odom_list.waitForTransform('/odom', '/base_link', rospy.Time(0), rospy.Duration(1.0))
         (position, orientation) = self._odom_list.lookupTransform('/odom','/base_link', rospy.Time(0))
-	# save the current position and orientation
-	self._current.position.x = position[0]
+    # save the current position and orientation
+    self._current.position.x = position[0]
         self._current.position.y = position[1]
         self._current.orientation.x = orientation[0]
         self._current.orientation.y = orientation[1]
