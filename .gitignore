@@ -1,4 +1,4 @@
 beginner_tutorials/*
+turtlebot3/*
+turtlebot3_msgs/*
 CMakeLists.txt
-turtlebot3
-turtlebot3_msgs
