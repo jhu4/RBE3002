@@ -43,10 +43,10 @@ class Robot:
         dtheta = math.atan2(dy,dx)
         distance = math.sqrt(dy**2+dx**2)
 
-        print("dy",dy)
-        print("dx",dx)
-        print("distance",distance)
-        print("dtheta",dtheta)
+        # print("dy",dy)
+        # print("dx",dx)
+        # print("distance",distance)
+        # print("dtheta",dtheta)
         self.rotate(dtheta - self.getYaw(origin.orientation))
         self.driveStraight(0.1, distance)
         self.rotate(goal_yaw - dtheta)
@@ -70,7 +70,7 @@ class Robot:
         twist.linear.x = speed
         twist.angular.z = 0
 
-        print("inital x:"+str(origin.position.x))
+        # print("inital x:"+str(origin.position.x))
         r = rospy.Rate(10)
 
         dy = self._current.position.y - origin. position.y
@@ -78,11 +78,42 @@ class Robot:
 
         while math.sqrt(dy**2 + dx**2) < abs(distance):
             self._vel_pub.publish(twist)
-            print("current x:",str(self._current.position.x),"y:",abs(self._current.position.y),"ds",math.sqrt(dy**2 + dx**2))
+            # print("current x:",str(self._current.position.x),"y:",abs(self._current.position.y),"ds",math.sqrt(dy**2 + dx**2))
             r.sleep()
             dy = self._current.position.y - origin. position.y
             dx = self._current.position.x - origin. position.x
 
+        self.stop()
+    def bangbangControl(self, speed, distance):
+        origin = copy.deepcopy(self._current) #hint:  use this
+
+        twist = Twist()
+        twist.linear.x = 0
+        twist.angular.z = 0
+
+        speed = float(speed)
+        # print("inital x:"+str(origin.position.x))
+        r = rospy.Rate(10)
+
+        dy = self._current.position.y - origin. position.y
+        dx = self._current.position.x - origin. position.x
+
+        while math.sqrt(dy**2 + dx**2) < (abs(distance) * 0.6):
+            self._vel_pub.publish(twist)
+            # print("speed",twist.linear.x)
+            r.sleep()
+            if twist.linear.x < speed:
+                twist.linear.x += (speed / 10)
+            dy = self._current.position.y - origin. position.y
+            dx = self._current.position.x - origin. position.x
+        while math.sqrt(dy**2 + dx**2) < abs(distance):
+            self._vel_pub.publish(twist)
+            # print("speed",twist.linear.x)
+            r.sleep()
+            if twist.linear.x > (speed / 20):
+                twist.linear.x -= (speed / 20)
+            dy = self._current.position.y - origin. position.y
+            dx = self._current.position.x - origin. position.x
         self.stop()
 
     def spinWheels(self, v_left, v_right, time):
@@ -124,8 +155,8 @@ class Robot:
 
         current_yaw = self.convertAngle(self.getYaw(self._current.orientation))
 
-        while abs(current_yaw - goal_yaw) > abs(angle / 40):
-            print("angle diff:",abs(current_yaw - goal_yaw),"threshold" , abs(angle/40))
+        while abs(current_yaw - goal_yaw) > abs(angle / 20):
+            # print("angle diff:",abs(current_yaw - goal_yaw),"threshold" , abs(angle/40))
             self._vel_pub.publish(twist)
             r.sleep()
             current_yaw = self.convertAngle(self.getYaw(self._current.orientation))
@@ -142,8 +173,8 @@ class Robot:
             Updates this instance of Robot's internal position variable (self._current)
         """
     # wait for and get the transform between two frames
-        self._odom_list.waitForTransform('odom', 'base_link', rospy.Time(0), rospy.Duration(1.0))
-        (position, orientation) = self._odom_list.lookupTransform('odom','base_link', rospy.Time(0))
+        self._odom_list.waitForTransform('/odom', '/base_link', rospy.Time(0), rospy.Duration(1.0))
+        (position, orientation) = self._odom_list.lookupTransform('/odom','/base_link', rospy.Time(0))
     # save the current position and orientation
         self._current.position.x = position[0]
         self._current.position.y = position[1]
@@ -163,16 +194,17 @@ if __name__ == '__main__':
 
     rospy.init_node('drive_base')
     turtle = Robot()
-
-    time.sleep(1)
+    rospy.sleep(2)
+    # time.sleep(1)
 
     #test function calls here
 
-    # turtle.rotate(2*math.pi*3/4)
+    # turtle.rotate(math.pi)
     # turtle.spinWheels(-0.2, -0.2, 5)
-    # turtle.driveStraight(-0.2, 14)
+    # turtle.driveStraight(-0.2, 3)
+    # turtle.bangbangControl(2, 3)
     while  not rospy.is_shutdown():
-    # 	# turtle.driveStraight(.2,.6)
-    #     turtle.rotate(3.14)
+    # # 	# turtle.driveStraight(.2,.6)
+    # #     turtle.rotate(3.14)
     # turtle.stop()
         pass
