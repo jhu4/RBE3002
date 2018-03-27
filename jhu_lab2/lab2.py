@@ -13,8 +13,6 @@ class Robot:
         """
             This constructor sets up class variables and pubs/subs
         """
-        self.angle_threshold = 0.1
-        self.velocity_threshold = 1
         self._current =  Pose() # initlize correctly
         self._odom_list = tf.TransformListener()
         rospy.Timer(rospy.Duration(.1), self.timerCallback)
@@ -36,27 +34,22 @@ class Robot:
             This is a callback function. It should exract data from goal, drive in a striaght line to reach the goal and
             then spin to match the goal orientation.
         """
-        # self._odom_list.waitForTransform('odom', 'base_link', rospy.Time(0), rospy.Duration(1.0))
-        rospy.sleep(1)
-        transGoal = self._odom_list.transformPose('base_link', goal) # transform the nav goal from the global coordinate system to the robot's coordinate system
-
-        goal_yaw = self.getYaw(transGoal.pose.orientation)
+        goal_yaw = self.getYaw(goal.pose.orientation)
 
 
-        # origin = copy.deepcopy(self._current)
-        dy = transGoal.pose.position.y #- origin.position.y
-        dx = transGoal.pose.position.x #- origin.position.x
-        align_angle = math.atan(dy/dx)
+        origin = copy.deepcopy(self._current)
+        dy = goal.pose.position.y - origin.position.y
+        dx = goal.pose.position.x - origin.position.x
+        dtheta = math.atan2(dy,dx)
         distance = math.sqrt(dy**2+dx**2)
 
         print("dy",dy)
         print("dx",dx)
         print("distance",distance)
-        print("a angle",align_angle)
-        self.rotate(align_angle)
-        self.driveStraight(0.05, distance)
-
-        self.rotate(goal_yaw - align_angle)
+        print("dtheta",dtheta)
+        self.rotate(dtheta - self.getYaw(origin.orientation))
+        self.driveStraight(0.1, distance)
+        self.rotate(goal_yaw - dtheta)
 
     def executeTrajectory(self):
       """
@@ -80,12 +73,16 @@ class Robot:
         print("inital x:"+str(origin.position.x))
         r = rospy.Rate(10)
 
-        goal = distance + origin.position.x
+        dy = self._current.position.y - origin. position.y
+        dx = self._current.position.x - origin. position.x
 
-        while abs(goal - self._current.position.x) > 0.1:
+        while math.sqrt(dy**2 + dx**2) < abs(distance):
             self._vel_pub.publish(twist)
-            print("current x:"+str(self._current.position.x))
+            print("current x:",str(self._current.position.x),"y:",abs(self._current.position.y),"ds",math.sqrt(dy**2 + dx**2))
             r.sleep()
+            dy = self._current.position.y - origin. position.y
+            dx = self._current.position.x - origin. position.x
+
         self.stop()
 
     def spinWheels(self, v_left, v_right, time):
@@ -108,7 +105,7 @@ class Robot:
 
         self.stop()
 
-    def convert_angle(self, angle):
+    def convertAngle(self, angle):
         return angle + math.pi
 
     def rotate(self,angle):
@@ -117,43 +114,22 @@ class Robot:
         """
 
         origin = copy.deepcopy(self._current)
+        yaw = self.getYaw(origin.orientation)
 
-        q = [origin.orientation.x,
-             origin.orientation.y,
-             origin.orientation.z,
-             origin.orientation.w] # quaternion nonsense
-
-        (roll, pitch, yaw) = euler_from_quaternion(q)
-
-        goal_yaw = (self.convert_angle(yaw) + angle) % (2 * math.pi)
-
-        # print("init yaw:"+str(yaw))
+        goal_yaw = (self.convertAngle(yaw) + angle) % (2 * math.pi)
 
         twist = Twist()
         twist.angular.z = angle / 5;
         r = rospy.Rate(10)
 
-        current_q = [self._current.orientation.x,
-                     self._current.orientation.y,
-                     self._current.orientation.z,
-                     self._current.orientation.w]
+        current_yaw = self.convertAngle(self.getYaw(self._current.orientation))
 
-        (current_roll, current_pitch, current_yaw) = euler_from_quaternion(current_q)
-
-        current_yaw = self.convert_angle(current_yaw)
-
-        while abs(current_yaw - goal_yaw) > self.angle_threshold:
+        while abs(current_yaw - goal_yaw) > abs(angle / 40):
+            print("angle diff:",abs(current_yaw - goal_yaw),"threshold" , abs(angle/40))
             self._vel_pub.publish(twist)
             r.sleep()
-            current_q = [self._current.orientation.x,
-                     self._current.orientation.y,
-                     self._current.orientation.z,
-                     self._current.orientation.w]
-
-            (current_roll, current_pitch, current_yaw) = euler_from_quaternion(current_q)
-            current_yaw = self.convert_angle(current_yaw)
+            current_yaw = self.convertAngle(self.getYaw(self._current.orientation))
             # print("current yaw:" + str(current_yaw))
-
         self.stop()
 
     def stop(self):
@@ -192,9 +168,9 @@ if __name__ == '__main__':
 
     #test function calls here
 
-    # turtle.rotate(3.14)
+    # turtle.rotate(2*math.pi*3/4)
     # turtle.spinWheels(-0.2, -0.2, 5)
-    # turtle.driveStraight(0.2, 7)
+    # turtle.driveStraight(-0.2, 14)
     while  not rospy.is_shutdown():
     # 	# turtle.driveStraight(.2,.6)
     #     turtle.rotate(3.14)
