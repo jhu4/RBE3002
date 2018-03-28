@@ -13,6 +13,7 @@ class Robot:
         """
             This constructor sets up class variables and pubs/subs
         """
+        self.L = .138
         self._current =  Pose() # initlize correctly
         self._odom_list = tf.TransformListener()
         rospy.Timer(rospy.Duration(.1), self.timerCallback)
@@ -84,6 +85,22 @@ class Robot:
             dx = self._current.position.x - origin. position.x
 
         self.stop()
+    def driveArc(self, radius, speed, angle):
+        omega = speed/ radius
+        twist = Twist()
+
+        twist.linear.x = speed
+        twist.angular.z = omega
+
+        r = rospy.Rate(10)
+
+        dt = float(angle) / omega
+        driveStartTime = rospy.get_time()
+        while rospy.get_time() < (driveStartTime + dt):
+            self._vel_pub.publish(twist)
+            r.sleep()
+        self.stop()
+
     def bangbangControl(self, speed, distance):
         origin = copy.deepcopy(self._current) #hint:  use this
 
@@ -122,11 +139,9 @@ class Robot:
            It should then create a ??? message type, and publish it to ??? in order to move the robot
         """
 
-        L = .138
-
         twist = Twist();
         twist.linear.x = (v_left + v_right) / 2
-        twist.angular.z = (v_right - v_left) / L
+        twist.angular.z = (v_right - v_left) / self.L
         r = rospy.Rate(10)
 
         driveStartTime = rospy.Time.now().secs
@@ -200,11 +215,12 @@ if __name__ == '__main__':
     #test function calls here
 
     # turtle.rotate(math.pi)
+    turtle.driveArc(.5, 0.1, math.pi)
     # turtle.spinWheels(-0.2, -0.2, 5)
     # turtle.driveStraight(-0.2, 3)
     # turtle.bangbangControl(2, 3)
-    while  not rospy.is_shutdown():
-    # # 	# turtle.driveStraight(.2,.6)
-    # #     turtle.rotate(3.14)
+    # while  not rospy.is_shutdown():
+    # 	# turtle.driveStraight(.2,.6)
+    #     turtle.rotate(3.14)
     # turtle.stop()
-        pass
+    #     pass
